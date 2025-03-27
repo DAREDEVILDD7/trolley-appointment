@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react"; // Correct import
 
 export default function AppointmentsPage() {
   const [supplier, setSupplier] = useState(null);
@@ -8,8 +9,10 @@ export default function AppointmentsPage() {
   const [selectedTime, setSelectedTime] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [message, setMessage] = useState("");
+  const [tokenNo, setTokenNo] = useState(null);
+  const [showTicket, setShowTicket] = useState(false);
+  const [ticketDetails, setTicketDetails] = useState(null); // Store ticket details
 
-  // Generate the next 7 days starting from today
   const generateNext7Days = () => {
     const days = [];
     for (let i = 0; i < 7; i++) {
@@ -20,7 +23,6 @@ export default function AppointmentsPage() {
     return days;
   };
 
-  // Generate time slots from 7 AM to 2 PM
   const generateTimeSlots = () => {
     const slots = [];
     for (let i = 7; i <= 15; i++) {
@@ -31,88 +33,76 @@ export default function AppointmentsPage() {
     return slots;
   };
 
-  // Check if a time slot is past for a selected date
   const isPastTimeSlot = (timeSlot, date) => {
-    const [start, end] = timeSlot.split("-");
+    const [start] = timeSlot.split("-");
     const [startHour] = start.split(":").map(Number);
-
-    // If the selected date is today
     if (
       date.toLocaleDateString("en-GB") ===
       currentDate.toLocaleDateString("en-GB")
     ) {
       const currentHour = currentDate.getHours();
-      return currentHour >= startHour; // Disable time slots that have already passed
+      return currentHour >= startHour;
     }
-
-    // For future dates, all slots are available
     return false;
   };
 
   useEffect(() => {
     const storedSupplier = localStorage.getItem("supplier");
     if (storedSupplier) {
-      setSupplier(JSON.parse(storedSupplier)); // Parse and set the supplier object
+      setSupplier(JSON.parse(storedSupplier));
     } else {
-      // Redirect to login page if no supplier info found
       router.push("/");
     }
   }, []);
 
   if (!supplier) return <p>Loading...</p>;
 
-  const handleDateChange = (date) => {
-    setSelectedDate(date);
-    setSelectedTime(null); // Reset time when the date is changed
+  const generateTID = () => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const seconds = String(now.getSeconds()).padStart(2, "0");
+    const milliseconds = String(now.getMilliseconds()).padStart(3, "0");
+    return `T${day}${month}${year}${hours}${minutes}${seconds}${milliseconds}`;
   };
-
-  const handleTimeChange = (time) => {
-    setSelectedTime(time);
-  };
-
-  const isBookingButtonDisabled = !selectedDate || !selectedTime;
 
   const handleBookAppointment = async () => {
-    if (!selectedDate || !selectedTime || !supplier?.id) {
-      console.log("Missing fields before API call:", {
-        selectedDate,
-        selectedTime,
-        supplierId: supplier?.id,
-      });
-      return;
-    }
+    if (!selectedDate || !selectedTime || !supplier?.id) return;
 
-    // Format the selected date to a standard string format (e.g., ISO 8601)
-    const formattedDate = selectedDate.toISOString();
-
-    // Time might need parsing to separate start and end times
+    const formattedDate = selectedDate.toLocaleDateString("en-GB");
     const [startTime, endTime] = selectedTime.split("-");
-
-    // Send the selectedTime as an object
-    const selectedTimeObj = { startTime, endTime };
+    const t_id = generateTID();
 
     try {
       const response = await fetch("/api/book-appointment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          selectedDate: formattedDate,
-          selectedTime: selectedTimeObj, // Send as an object
+          t_id,
+          selectedDate: selectedDate.toISOString(),
+          selectedTime: { startTime, endTime },
           supplierId: supplier.id,
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Unknown error occurred.");
-      }
+      if (!response.ok) throw new Error("Failed to book appointment.");
 
       const data = await response.json();
-      console.log("Appointment booked successfully", data);
-      setMessage(`Appointment booked! Token: ${data.token_no}`);
+
+      // Store ticket details to show in the pop-up
+      setTicketDetails({
+        title: "Trolley Kuwait Appointment",
+        supplierName: supplier.s_name,
+        supplierCompany: supplier.s_compname,
+        bookedSlot: `${formattedDate} | ${startTime} - ${endTime}`,
+        tokenNo: data.token_no,
+        transactionId: t_id,
+      });
     } catch (error) {
       console.error("Error booking appointment:", error);
-      setMessage(`Error: ${error.message}`);
     }
   };
 
@@ -130,8 +120,6 @@ export default function AppointmentsPage() {
             You are logged in as a supplier from {supplier.s_compname}.
           </p>
         </div>
-
-        {/* Date Selection */}
         <div className="mt-6 text-center">
           <p className="text-gray-300">Select a date:</p>
           <div className="flex justify-center space-x-2 mt-4">
@@ -140,11 +128,10 @@ export default function AppointmentsPage() {
               const isSelected =
                 selectedDate &&
                 selectedDate.toLocaleDateString("en-GB") === formattedDate;
-
               return (
                 <button
                   key={index}
-                  onClick={() => handleDateChange(date)}
+                  onClick={() => setSelectedDate(date)}
                   className={`px-4 py-2 rounded-md ${
                     isSelected ? "bg-blue-500" : "bg-gray-700"
                   }`}
@@ -155,19 +142,16 @@ export default function AppointmentsPage() {
             })}
           </div>
         </div>
-
-        {/* Time Slot Selection */}
         {selectedDate && (
           <div className="mt-6 text-center">
             <p className="text-gray-300">Select a time slot:</p>
             <div className="flex justify-center space-x-2 mt-4">
               {generateTimeSlots().map((timeSlot, index) => {
                 const isDisabled = isPastTimeSlot(timeSlot, selectedDate);
-
                 return (
                   <button
                     key={index}
-                    onClick={() => handleTimeChange(timeSlot)}
+                    onClick={() => setSelectedTime(timeSlot)}
                     disabled={isDisabled}
                     className={`px-4 py-2 rounded-md ${
                       selectedTime === timeSlot
@@ -184,29 +168,49 @@ export default function AppointmentsPage() {
             </div>
           </div>
         )}
-
-        {/* Book Appointment Button */}
         <div className="mt-6 text-center">
           <button
             onClick={handleBookAppointment}
-            disabled={isBookingButtonDisabled}
-            className={`px-6 py-2 rounded-md text-white ${
-              isBookingButtonDisabled
-                ? "bg-gray-600 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-600"
-            }`}
+            disabled={!selectedDate || !selectedTime}
+            className="px-6 py-2 rounded-md text-white bg-blue-500 hover:bg-blue-600"
           >
             Book Appointment
           </button>
         </div>
-
-        {/* Message After Booking */}
-        {message && (
-          <div className="mt-4 text-center text-gray-400">
-            <p>{message}</p>
-          </div>
-        )}
       </div>
+
+      {ticketDetails && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white text-black p-6 rounded-lg shadow-lg w-80 text-center relative">
+            <h2 className="text-lg font-bold">{ticketDetails.title}</h2>
+            <p className="text-sm mt-2">
+              Supplier: {ticketDetails.supplierName}
+            </p>
+            <p className="text-sm">Company: {ticketDetails.supplierCompany}</p>
+            <p className="mt-4 text-sm">
+              Booked Slot: {ticketDetails.bookedSlot}
+            </p>
+            <p className="text-4xl font-bold text-red-600 mt-4">
+              {ticketDetails.tokenNo}
+            </p>
+            <p className="text-xs mt-2">
+              Transaction ID: {ticketDetails.transactionId}
+            </p>
+
+            {/* QR Code for Transaction ID */}
+            <div className="flex justify-center mt-4">
+              <QRCodeCanvas value={ticketDetails.transactionId} size={100} />
+            </div>
+
+            <button
+              onClick={() => setTicketDetails(null)}
+              className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
+            >
+              ✖
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

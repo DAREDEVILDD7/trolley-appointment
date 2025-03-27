@@ -28,6 +28,18 @@ export const POST = async (req) => {
     }
 
     const lastTokenNo = data[0]?.token_no;
+    // Get current timestamp for t_id
+    const now = new Date();
+    const dayNow = now.getDate().toString().padStart(2, "0"); // dd
+    const monthNow = (now.getMonth() + 1).toString().padStart(2, "0"); // mm
+    const yearNow = now.getFullYear().toString(); // yyyy
+    const hourNow = now.getHours().toString().padStart(2, "0"); // HH
+    const minuteNow = now.getMinutes().toString().padStart(2, "0"); // MM
+    const secondNow = now.getSeconds().toString().padStart(2, "0"); // SS
+    const millisecondNow = now.getMilliseconds().toString().padStart(3, "0"); // SSS
+
+    // Construct t_id in required format
+    const t_id = `T${dayNow}${monthNow}${yearNow}${hourNow}${minuteNow}${secondNow}${millisecondNow}`;
 
     if (!lastTokenNo) {
       return NextResponse.json(
@@ -71,6 +83,7 @@ export const POST = async (req) => {
     // 4. Create a new appointment record with the next token
     const { error: insertError } = await supabase.from("Tokens").insert([
       {
+        t_id: t_id, // Assign the formatted t_id
         token_no: nextTokenNumber,
         s_id: supplierId,
         slot_time: formattedSlotTime, // Using the formatted slot time
