@@ -1,47 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { QRCodeCanvas } from "qrcode.react"; // Correct import
+import { QRCodeCanvas } from "qrcode.react";
 
 export default function AppointmentsPage() {
   const [supplier, setSupplier] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [message, setMessage] = useState("");
-  const [tokenNo, setTokenNo] = useState(null);
-  const [showTicket, setShowTicket] = useState(false);
-  const [ticketDetails, setTicketDetails] = useState(null); // Store ticket details
+  const [ticketDetails, setTicketDetails] = useState(null);
 
   const generateNext7Days = () => {
-    const days = [];
-    for (let i = 0; i < 7; i++) {
+    return Array.from({ length: 7 }, (_, i) => {
       const date = new Date();
       date.setDate(currentDate.getDate() + i);
-      days.push(date);
-    }
-    return days;
+      return date;
+    });
   };
 
   const generateTimeSlots = () => {
-    const slots = [];
-    for (let i = 7; i <= 15; i++) {
-      const start = `${i}:00`;
-      const end = `${i + 1}:00`;
-      slots.push(`${start}-${end}`);
-    }
-    return slots;
+    return Array.from({ length: 9 }, (_, i) => {
+      const start = `${i + 7}:00`;
+      const end = `${i + 8}:00`;
+      return `${start}-${end}`;
+    });
   };
 
   const isPastTimeSlot = (timeSlot, date) => {
     const [start] = timeSlot.split("-");
     const [startHour] = start.split(":").map(Number);
-    if (
-      date.toLocaleDateString("en-GB") ===
-      currentDate.toLocaleDateString("en-GB")
-    ) {
-      const currentHour = currentDate.getHours();
-      return currentHour >= startHour;
+    if (date.toLocaleDateString("en-GB") === currentDate.toLocaleDateString("en-GB")) {
+      return currentDate.getHours() >= startHour;
     }
     return false;
   };
@@ -50,8 +39,6 @@ export default function AppointmentsPage() {
     const storedSupplier = localStorage.getItem("supplier");
     if (storedSupplier) {
       setSupplier(JSON.parse(storedSupplier));
-    } else {
-      router.push("/");
     }
   }, []);
 
@@ -59,14 +46,7 @@ export default function AppointmentsPage() {
 
   const generateTID = () => {
     const now = new Date();
-    const day = String(now.getDate()).padStart(2, "0");
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const seconds = String(now.getSeconds()).padStart(2, "0");
-    const milliseconds = String(now.getMilliseconds()).padStart(3, "0");
-    return `T${day}${month}${year}${hours}${minutes}${seconds}${milliseconds}`;
+    return `T${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}${now.getHours()}${now.getMinutes()}${now.getSeconds()}${now.getMilliseconds()}`;
   };
 
   const handleBookAppointment = async () => {
@@ -92,7 +72,6 @@ export default function AppointmentsPage() {
 
       const data = await response.json();
 
-      // Store ticket details to show in the pop-up
       setTicketDetails({
         title: "Trolley Kuwait Appointment",
         supplierName: supplier.s_name,
@@ -107,33 +86,26 @@ export default function AppointmentsPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
-      <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-96">
-        <h2 className="text-2xl font-bold text-center text-blue-400">
-          Appointments
-        </h2>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+      <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h2 className="text-2xl font-bold text-center text-blue-400">Appointments</h2>
         <div className="mt-6">
-          <h3 className="text-xl text-center text-gray-300">
-            Welcome, {supplier.s_name}!
-          </h3>
-          <p className="text-center text-gray-400">
-            You are logged in as a supplier from {supplier.s_compname}.
-          </p>
+          <h3 className="text-xl text-center text-gray-300">Welcome, {supplier.s_name}!</h3>
+          <p className="text-center text-gray-400">You are logged in as a supplier from {supplier.s_compname}.</p>
         </div>
+
+        {/* Date Selection */}
         <div className="mt-6 text-center">
           <p className="text-gray-300">Select a date:</p>
-          <div className="flex justify-center space-x-2 mt-4">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center gap-2 mt-4">
             {generateNext7Days().map((date, index) => {
               const formattedDate = date.toLocaleDateString("en-GB");
-              const isSelected =
-                selectedDate &&
-                selectedDate.toLocaleDateString("en-GB") === formattedDate;
               return (
                 <button
                   key={index}
                   onClick={() => setSelectedDate(date)}
                   className={`px-4 py-2 rounded-md ${
-                    isSelected ? "bg-blue-500" : "bg-gray-700"
+                    selectedDate?.toLocaleDateString("en-GB") === formattedDate ? "bg-blue-500" : "bg-gray-700"
                   }`}
                 >
                   {formattedDate}
@@ -142,10 +114,12 @@ export default function AppointmentsPage() {
             })}
           </div>
         </div>
+
+        {/* Time Slot Selection */}
         {selectedDate && (
           <div className="mt-6 text-center">
             <p className="text-gray-300">Select a time slot:</p>
-            <div className="flex justify-center space-x-2 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
               {generateTimeSlots().map((timeSlot, index) => {
                 const isDisabled = isPastTimeSlot(timeSlot, selectedDate);
                 return (
@@ -154,11 +128,7 @@ export default function AppointmentsPage() {
                     onClick={() => setSelectedTime(timeSlot)}
                     disabled={isDisabled}
                     className={`px-4 py-2 rounded-md ${
-                      selectedTime === timeSlot
-                        ? "bg-blue-500"
-                        : isDisabled
-                        ? "bg-gray-600 cursor-not-allowed"
-                        : "bg-gray-700"
+                      selectedTime === timeSlot ? "bg-blue-500" : isDisabled ? "bg-gray-600 cursor-not-allowed" : "bg-gray-700"
                     }`}
                   >
                     {timeSlot}
@@ -168,6 +138,8 @@ export default function AppointmentsPage() {
             </div>
           </div>
         )}
+
+        {/* Book Appointment Button */}
         <div className="mt-6 text-center">
           <button
             onClick={handleBookAppointment}
@@ -179,23 +151,16 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
+      {/* Ticket Modal */}
       {ticketDetails && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white text-black p-6 rounded-lg shadow-lg w-80 text-center relative">
             <h2 className="text-lg font-bold">{ticketDetails.title}</h2>
-            <p className="text-sm mt-2">
-              Supplier: {ticketDetails.supplierName}
-            </p>
+            <p className="text-sm mt-2">Supplier: {ticketDetails.supplierName}</p>
             <p className="text-sm">Company: {ticketDetails.supplierCompany}</p>
-            <p className="mt-4 text-sm">
-              Booked Slot: {ticketDetails.bookedSlot}
-            </p>
-            <p className="text-4xl font-bold text-red-600 mt-4">
-              {ticketDetails.tokenNo}
-            </p>
-            <p className="text-xs mt-2">
-              Transaction ID: {ticketDetails.transactionId}
-            </p>
+            <p className="mt-4 text-sm">Booked Slot: {ticketDetails.bookedSlot}</p>
+            <p className="text-4xl font-bold text-red-600 mt-4">{ticketDetails.tokenNo}</p>
+            <p className="text-xs mt-2">Transaction ID: {ticketDetails.transactionId}</p>
 
             {/* QR Code for Transaction ID */}
             <div className="flex justify-center mt-4">
