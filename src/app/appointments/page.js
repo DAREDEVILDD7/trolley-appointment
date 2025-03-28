@@ -9,6 +9,7 @@ export default function AppointmentsPage() {
   const [selectedTime, setSelectedTime] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [ticketDetails, setTicketDetails] = useState(null);
+  const [isBooking, setIsBooking] = useState(false);
 
   const generateNext7Days = () => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -29,7 +30,10 @@ export default function AppointmentsPage() {
   const isPastTimeSlot = (timeSlot, date) => {
     const [start] = timeSlot.split("-");
     const [startHour] = start.split(":").map(Number);
-    if (date.toLocaleDateString("en-GB") === currentDate.toLocaleDateString("en-GB")) {
+    if (
+      date.toLocaleDateString("en-GB") ===
+      currentDate.toLocaleDateString("en-GB")
+    ) {
       return currentDate.getHours() >= startHour;
     }
     return false;
@@ -46,11 +50,15 @@ export default function AppointmentsPage() {
 
   const generateTID = () => {
     const now = new Date();
-    return `T${now.getFullYear()}${now.getMonth() + 1}${now.getDate()}${now.getHours()}${now.getMinutes()}${now.getSeconds()}${now.getMilliseconds()}`;
+    return `T${now.getFullYear()}${
+      now.getMonth() + 1
+    }${now.getDate()}${now.getHours()}${now.getMinutes()}${now.getSeconds()}${now.getMilliseconds()}`;
   };
 
   const handleBookAppointment = async () => {
-    if (!selectedDate || !selectedTime || !supplier?.id) return;
+    if (!selectedDate || !selectedTime || !supplier?.id || isBooking) return;
+
+    setIsBooking(true); // Disable the button
 
     const formattedDate = selectedDate.toLocaleDateString("en-GB");
     const [startTime, endTime] = selectedTime.split("-");
@@ -82,16 +90,23 @@ export default function AppointmentsPage() {
       });
     } catch (error) {
       console.error("Error booking appointment:", error);
+      setIsBooking(false); // Re-enable the button if an error occurs
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
       <div className="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-blue-400">Appointments</h2>
+        <h2 className="text-2xl font-bold text-center text-blue-400">
+          Appointments
+        </h2>
         <div className="mt-6">
-          <h3 className="text-xl text-center text-gray-300">Welcome, {supplier.s_name}!</h3>
-          <p className="text-center text-gray-400">You are logged in as a supplier from {supplier.s_compname}.</p>
+          <h3 className="text-xl text-center text-gray-300">
+            Welcome, {supplier.s_name}!
+          </h3>
+          <p className="text-center text-gray-400">
+            You are logged in as a supplier from {supplier.s_compname}.
+          </p>
         </div>
 
         {/* Date Selection */}
@@ -105,7 +120,9 @@ export default function AppointmentsPage() {
                   key={index}
                   onClick={() => setSelectedDate(date)}
                   className={`px-4 py-2 rounded-md ${
-                    selectedDate?.toLocaleDateString("en-GB") === formattedDate ? "bg-blue-500" : "bg-gray-700"
+                    selectedDate?.toLocaleDateString("en-GB") === formattedDate
+                      ? "bg-blue-500"
+                      : "bg-gray-700"
                   }`}
                 >
                   {formattedDate}
@@ -128,7 +145,11 @@ export default function AppointmentsPage() {
                     onClick={() => setSelectedTime(timeSlot)}
                     disabled={isDisabled}
                     className={`px-4 py-2 rounded-md ${
-                      selectedTime === timeSlot ? "bg-blue-500" : isDisabled ? "bg-gray-600 cursor-not-allowed" : "bg-gray-700"
+                      selectedTime === timeSlot
+                        ? "bg-blue-500"
+                        : isDisabled
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-gray-700"
                     }`}
                   >
                     {timeSlot}
@@ -143,10 +164,14 @@ export default function AppointmentsPage() {
         <div className="mt-6 text-center">
           <button
             onClick={handleBookAppointment}
-            disabled={!selectedDate || !selectedTime}
-            className="px-6 py-2 rounded-md text-white bg-blue-500 hover:bg-blue-600"
+            disabled={!selectedDate || !selectedTime || isBooking}
+            className={`px-6 py-2 rounded-md text-white ${
+              isBooking
+                ? "bg-gray-500 cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-600"
+            }`}
           >
-            Book Appointment
+            {isBooking ? "Booking..." : "Book Appointment"}
           </button>
         </div>
       </div>
@@ -156,11 +181,19 @@ export default function AppointmentsPage() {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white text-black p-6 rounded-lg shadow-lg w-80 text-center relative">
             <h2 className="text-lg font-bold">{ticketDetails.title}</h2>
-            <p className="text-sm mt-2">Supplier: {ticketDetails.supplierName}</p>
+            <p className="text-sm mt-2">
+              Supplier: {ticketDetails.supplierName}
+            </p>
             <p className="text-sm">Company: {ticketDetails.supplierCompany}</p>
-            <p className="mt-4 text-sm">Booked Slot: {ticketDetails.bookedSlot}</p>
-            <p className="text-4xl font-bold text-red-600 mt-4">{ticketDetails.tokenNo}</p>
-            <p className="text-xs mt-2">Transaction ID: {ticketDetails.transactionId}</p>
+            <p className="mt-4 text-sm">
+              Booked Slot: {ticketDetails.bookedSlot}
+            </p>
+            <p className="text-4xl font-bold text-red-600 mt-4">
+              {ticketDetails.tokenNo}
+            </p>
+            <p className="text-xs mt-2">
+              Transaction ID: {ticketDetails.transactionId}
+            </p>
 
             {/* QR Code for Transaction ID */}
             <div className="flex justify-center mt-4">
@@ -168,7 +201,10 @@ export default function AppointmentsPage() {
             </div>
 
             <button
-              onClick={() => setTicketDetails(null)}
+              onClick={() => {
+                setTicketDetails(null);
+                setIsBooking(false); // Re-enable the button when closing the modal
+              }}
               className="absolute top-2 right-2 text-gray-600 hover:text-gray-900"
             >
               ✖
