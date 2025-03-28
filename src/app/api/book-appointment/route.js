@@ -50,7 +50,10 @@ export const POST = async (req) => {
 
     // 2. Increment the token number
     const lastTokenNumber = parseInt(lastTokenNo.substring(1)); // Remove "O" and convert to number
-    const nextTokenNumber = `O${lastTokenNumber + 1}`; // Increment and reattach "O"
+    const nextTokenNumber =
+      lastTokenNumber === 999
+        ? "O400"
+        : `O${(lastTokenNumber + 1).toString().padStart(3, "0")}`;
 
     // 3. Format the slot_time as ddmmyyyyhhmmhhmm
     const dateObj = new Date(selectedDate);
