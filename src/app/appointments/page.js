@@ -48,13 +48,6 @@ export default function AppointmentsPage() {
 
   if (!supplier) return <p>Loading...</p>;
 
-  const generateTID = () => {
-    const now = new Date();
-    return `T${now.getFullYear()}${
-      now.getMonth() + 1
-    }${now.getDate()}${now.getHours()}${now.getMinutes()}${now.getSeconds()}${now.getMilliseconds()}`;
-  };
-
   const handleBookAppointment = async () => {
     if (!selectedDate || !selectedTime || !supplier?.id || isBooking) return;
 
@@ -62,14 +55,12 @@ export default function AppointmentsPage() {
 
     const formattedDate = selectedDate.toLocaleDateString("en-GB");
     const [startTime, endTime] = selectedTime.split("-");
-    const t_id = generateTID();
 
     try {
       const response = await fetch("/api/book-appointment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          t_id,
           selectedDate: selectedDate.toISOString(),
           selectedTime: { startTime, endTime },
           supplierId: supplier.id,
@@ -86,7 +77,7 @@ export default function AppointmentsPage() {
         supplierCompany: supplier.s_compname,
         bookedSlot: `${formattedDate} | ${startTime} - ${endTime}`,
         tokenNo: data.token_no,
-        transactionId: t_id,
+        transactionId: data.t_id, // This should come from the backend
       });
     } catch (error) {
       console.error("Error booking appointment:", error);

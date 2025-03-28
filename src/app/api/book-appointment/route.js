@@ -104,7 +104,11 @@ export const POST = async (req) => {
 
     // 5. Respond back with success and token number
     return NextResponse.json(
-      { message: "Appointment booked successfully", token_no: nextTokenNumber }, // Returning nextTokenNumber
+      {
+        message: "Appointment booked successfully",
+        token_no: nextTokenNumber,
+        t_id: t_id, // Send the correct t_id back to the frontend
+      },
       { status: 200 }
     );
   } catch (error) {
