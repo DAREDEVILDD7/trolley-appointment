@@ -75,12 +75,15 @@ export const POST = async (req) => {
     }
 
     const { startTime, endTime } = selectedTime;
-    const startHour = startTime.substring(0, 2); // hh (start)
-    const startMinute = startTime.substring(3, 5); // mm (start)
-    const endHour = endTime.substring(0, 2); // hh (end)
-    const endMinute = endTime.substring(3, 5); // mm (end)
 
-    // Ensure the formatting is correct for each component
+    const [startHourRaw, startMinuteRaw] = startTime.split(":");
+    const [endHourRaw, endMinuteRaw] = endTime.split(":");
+
+    const startHour = startHourRaw.padStart(2, "0");
+    const startMinute = startMinuteRaw.padStart(2, "0");
+    const endHour = endHourRaw.padStart(2, "0");
+    const endMinute = endMinuteRaw.padStart(2, "0");
+
     const formattedSlotTime = `${day}${month}${year}${startHour}${startMinute}${endHour}${endMinute}`;
 
     // 4. Create a new appointment record with the next token
