@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import html2canvas from "html2canvas";
 
 export default function AppointmentsPage() {
   const [supplier, setSupplier] = useState(null);
@@ -10,6 +11,9 @@ export default function AppointmentsPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [ticketDetails, setTicketDetails] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const ticketRef = useRef(null);
+  const qrCodeRef = useRef(null);
 
   const generateNext7Days = () => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -45,6 +49,86 @@ export default function AppointmentsPage() {
       setSupplier(JSON.parse(storedSupplier));
     }
   }, []);
+
+  const handleDownloadTicket = async () => {
+    if (!ticketRef.current) return;
+
+    setIsDownloading(true);
+
+    try {
+      // Create a ticket element with simple styling
+      const ticketContainer = document.createElement("div");
+      ticketContainer.style.backgroundColor = "#ffffff";
+      ticketContainer.style.padding = "20px";
+      ticketContainer.style.width = "350px";
+      ticketContainer.style.fontFamily = "Arial, sans-serif";
+      ticketContainer.style.borderRadius = "8px";
+      ticketContainer.style.boxShadow = "0 4px 8px rgba(0, 0, 0, 0.1)";
+      ticketContainer.style.color = "#000000";
+      ticketContainer.style.textAlign = "center";
+
+      // Add ticket content
+      ticketContainer.innerHTML = `
+        <h2 style="font-size:22px; font-weight:bold; margin-bottom:16px;">${ticketDetails.title}</h2>
+        <p style="font-size:14px; margin:8px 0;">Supplier: ${ticketDetails.supplierName}</p>
+        <p style="font-size:14px; margin:8px 0;">Company: ${ticketDetails.supplierCompany}</p>
+        <p style="font-size:14px; margin:16px 0;">Booked Slot: ${ticketDetails.bookedSlot}</p>
+        <p style="font-size:42px; font-weight:bold; color:#ff0000; margin:16px 0;">${ticketDetails.tokenNo}</p>
+        <p style="font-size:12px; margin:8px 0;">Transaction ID: ${ticketDetails.transactionId}</p>
+        <div id="qr-placeholder" style="display:flex; justify-content:center; align-items:center; margin-top:16px; height:120px;"></div>
+      `;
+
+      // Append to document but keep hidden
+      ticketContainer.style.position = "absolute";
+      ticketContainer.style.left = "-9999px";
+      document.body.appendChild(ticketContainer);
+
+      // If we have a QR code in the DOM, copy it to our canvas
+      if (qrCodeRef.current) {
+        // Find the canvas inside the QRCodeCanvas component
+        const originalQrCanvas = qrCodeRef.current.querySelector("canvas");
+        if (originalQrCanvas) {
+          // Create a new canvas for the QR code
+          const qrCanvas = document.createElement("canvas");
+          qrCanvas.width = 120;
+          qrCanvas.height = 120;
+          const qrContext = qrCanvas.getContext("2d");
+
+          // Draw the QR code centered
+          qrContext.drawImage(originalQrCanvas, 0, 0, 120, 120);
+
+          // Add the QR code to our ticket with centering styles
+          const qrPlaceholder =
+            ticketContainer.querySelector("#qr-placeholder");
+          if (qrPlaceholder) {
+            qrCanvas.style.display = "block";
+            qrCanvas.style.margin = "0 auto";
+            qrPlaceholder.appendChild(qrCanvas);
+          }
+
+          // Now capture the ticket as an image
+          const canvas = await html2canvas(ticketContainer, {
+            backgroundColor: "#ffffff",
+            scale: 2,
+            logging: false,
+          });
+
+          // Create download link
+          const link = document.createElement("a");
+          link.download = `trolley-appointment-${ticketDetails.tokenNo}.png`;
+          link.href = canvas.toDataURL("image/png");
+          link.click();
+        }
+      }
+
+      // Clean up
+      document.body.removeChild(ticketContainer);
+    } catch (error) {
+      console.error("Error downloading ticket:", error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (!supplier) return <p>Loading...</p>;
 
@@ -171,25 +255,43 @@ export default function AppointmentsPage() {
       {ticketDetails && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white text-black p-6 rounded-lg shadow-lg w-80 text-center relative">
-            <h2 className="text-lg font-bold">{ticketDetails.title}</h2>
-            <p className="text-sm mt-2">
-              Supplier: {ticketDetails.supplierName}
-            </p>
-            <p className="text-sm">Company: {ticketDetails.supplierCompany}</p>
-            <p className="mt-4 text-sm">
-              Booked Slot: {ticketDetails.bookedSlot}
-            </p>
-            <p className="text-4xl font-bold text-red-600 mt-4">
-              {ticketDetails.tokenNo}
-            </p>
-            <p className="text-xs mt-2">
-              Transaction ID: {ticketDetails.transactionId}
-            </p>
+            {/* Ticket Content - wrapped in a div with ref for capture */}
+            <div ref={ticketRef}>
+              <h2 className="text-lg font-bold">{ticketDetails.title}</h2>
+              <p className="text-sm mt-2">
+                Supplier: {ticketDetails.supplierName}
+              </p>
+              <p className="text-sm">
+                Company: {ticketDetails.supplierCompany}
+              </p>
+              <p className="mt-4 text-sm">
+                Booked Slot: {ticketDetails.bookedSlot}
+              </p>
+              <p className="text-4xl font-bold text-red-600 mt-4">
+                {ticketDetails.tokenNo}
+              </p>
+              <p className="text-xs mt-2">
+                Transaction ID: {ticketDetails.transactionId}
+              </p>
 
-            {/* QR Code for Transaction ID */}
-            <div className="flex justify-center mt-4">
-              <QRCodeCanvas value={ticketDetails.transactionId} size={100} />
+              {/* QR Code for Transaction ID - centered */}
+              <div ref={qrCodeRef} className="flex justify-center mt-4">
+                <QRCodeCanvas value={ticketDetails.transactionId} size={100} />
+              </div>
             </div>
+
+            {/* Download Button */}
+            <button
+              onClick={handleDownloadTicket}
+              disabled={isDownloading}
+              className={`mt-4 px-4 py-2 rounded ${
+                isDownloading
+                  ? "bg-gray-300"
+                  : "bg-blue-500 text-white hover:bg-blue-600"
+              }`}
+            >
+              {isDownloading ? "Downloading..." : "Download Ticket"}
+            </button>
 
             <button
               onClick={() => {
